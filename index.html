@@ -62,7 +62,7 @@
     #radio-toggle {
       position: fixed;
       right: 20px; bottom: 20px;           /* align bottom with footer logo */
-      width: 69px; 
+      width: 69px;
       height: 69px;
       z-index: 2000;
       cursor: pointer;
@@ -70,7 +70,6 @@
       image-rendering: crisp-edges;
     }
     #radio-toggle.playing {
-      /* subtle pressed effect when playing */
       transform: scale(0.98);
       filter: brightness(0.95);
     }
@@ -81,7 +80,7 @@
     /* --- Retro Dropdown Menu --- */
     #hm-menu {
       position: fixed;
-      top: 190px; /* ~150px button height + 20px top + some breathing */
+      top: 190px; /* ~150px button height + 20px top + breathing room */
       left: 20px;
       z-index: 2100;
       background: var(--win-bg);
@@ -138,8 +137,7 @@
     /* --- Window (Win95 chrome) --- */
     .hm-window {
       position: absolute;
-      top: 10vh; left: 50%;
-      transform: translateX(-50%);
+      /* left/top are set in JS to center and clamp */
       width: min(780px, 92vw);
       max-height: 76vh;
       background: var(--win-bg);
@@ -154,7 +152,7 @@
       pointer-events: auto; /* accept events */
     }
     .hm-window.fullscreen {
-      top: 0 !important; left: 0 !important; transform: none !important;
+      top: 0 !important; left: 0 !important;
       width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
       border-radius: 0 !important;
     }
@@ -289,7 +287,7 @@
     tabindex="0"
     aria-pressed="false"
     aria-label="Play Higher Radio"
-    title="Press to play music from AOMIX EP.19 by Spray"
+    title="Music from AOMIX EP.19 by Spray"
   />
   <audio id="radio-audio" src="assets/radio-audio.mp3" preload="none"></audio>
 
@@ -323,6 +321,36 @@
         win.style.zIndex = zSeed;
       }
 
+      /* --- Helper: center, avoid menu if open, clamp to viewport --- */
+      function centerAndClamp(win, avoidMenu = true) {
+        const rect = win.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const margin = 12; // safe padding from edges
+
+        // ideal center
+        let left = Math.round((vw - rect.width) / 2);
+        let top  = Math.round((vh - rect.height) / 2);
+
+        // nudge away from visible menu
+        if (avoidMenu) {
+          const m = menu.getBoundingClientRect();
+          if (!menu.classList.contains('hidden')) {
+            const overlapsHoriz = left < (m.right + margin);
+            const overlapsVert  = top < (m.bottom + margin);
+            if (overlapsHoriz) left = m.right + margin;
+            if (overlapsVert)  top  = Math.max(top, m.bottom + margin);
+          }
+        }
+
+        // clamp inside viewport
+        left = Math.max(margin, Math.min(vw - rect.width  - margin, left));
+        top  = Math.max(margin, Math.min(vh - rect.height - margin, top));
+
+        win.style.left = left + 'px';
+        win.style.top  = top  + 'px';
+      }
+
       /* --- Create a centered, draggable window --- */
       function createWindow(title, html) {
         const id = 'win_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
@@ -346,15 +374,11 @@
           <div class="hm-window-content" tabindex="0">${html}</div>
         `;
 
-        // Mount to measure, then center
         layer.appendChild(win);
-        requestAnimationFrame(() => {
-          const rect = win.getBoundingClientRect();
-          const centerLeft = Math.max(0, Math.round((window.innerWidth - rect.width)  / 2));
-          const centerTop  = Math.max(0, Math.round((window.innerHeight - rect.height) / 2));
-          win.style.left = centerLeft + 'px';
-          win.style.top  = centerTop  + 'px';
 
+        // measure -> center -> clamp -> focus
+        requestAnimationFrame(() => {
+          centerAndClamp(win, /* avoidMenu */ true);
           bringToFront(win);
           attachWindowBehaviors(win);
           win.querySelector('.hm-window-content').focus();
@@ -387,10 +411,15 @@
 
           window.addEventListener('mousemove', (e) => {
             if (!drag.active) return;
-            const x = e.clientX - drag.offsetX;
-            const y = e.clientY - drag.offsetY;
-            win.style.left = Math.max(0, Math.min(window.innerWidth - 100, x)) + 'px';
-            win.style.top  = Math.max(0, Math.min(window.innerHeight - 40, y)) + 'px';
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const rect = win.getBoundingClientRect();
+            let x = e.clientX - drag.offsetX;
+            let y = e.clientY - drag.offsetY;
+            const margin = 12;
+            x = Math.max(margin, Math.min(vw - rect.width  - margin, x));
+            y = Math.max(margin, Math.min(vh - rect.height - margin, y));
+            win.style.left = x + 'px';
+            win.style.top  = y + 'px';
           });
 
           window.addEventListener('mouseup', () => {
@@ -406,6 +435,9 @@
         btnFull.addEventListener('click', () => win.classList.toggle('fullscreen'));
 
         win.addEventListener('mousedown', () => bringToFront(win));
+
+        // keep window on-screen on resize
+        window.addEventListener('resize', () => centerAndClamp(win, false));
       }
 
       // CONTENT: Updated copy/links
@@ -467,6 +499,7 @@
           <h3>Higher Market Homies</h3>
           <ul>
             <li><a href="https://www.basecolors.com" target="_blank" rel="noopener">Base Colors</a></li>
+            <li><a href="https://www.operatingsystem.io/" target="_blank" rel="noopener">Operating System</a></li>            
             <li><a href="https://www.spacetobe.xyz/beings" target="_blank" rel="noopener">Beings Club</a></li>
             <li><a href="https://chones.xyz/" target="_blank" rel="noopener">Chones</a></li>
           </ul>
@@ -560,7 +593,6 @@
             radioBtn.setAttribute('aria-label', 'Play Higher Radio');
           }
         } catch (err) {
-          // Some browsers block autoplay until a gesture—this is user-initiated, so should be fine.
           console.error('Radio play error:', err);
         }
       }
@@ -573,7 +605,6 @@
         }
       });
 
-      // If audio ends naturally, reset button state
       radio.addEventListener('ended', () => {
         radioBtn.classList.remove('playing');
         radioBtn.setAttribute('aria-pressed', 'false');
