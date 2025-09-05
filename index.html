@@ -37,7 +37,7 @@
       filter: contrast(0.9) brightness(0.85);
     }
 
-    /* --- Menu Button (150px) --- */
+    /* --- Menu Button (150px) + Pulse --- */
     #menu-button {
       position: fixed;
       top: 20px; left: 20px;
@@ -47,8 +47,22 @@
       z-index: 2000;
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
+      transform-origin: center;
     }
     #menu-button.open { width: 130px; transition: width 140ms ease; }
+
+    /* Pulse cue */
+    @keyframes slowPulse {
+      0%   { transform: translateY(0) scale(1);   filter: none; }
+      50%  { transform: translateY(-2px) scale(1.04); filter: drop-shadow(0 2px 0 rgba(0,0,0,0.15)); }
+      100% { transform: translateY(0) scale(1);   filter: none; }
+    }
+    #menu-button.pulse {
+      animation: slowPulse 2.2s ease-in-out infinite;
+    }
+    @media (pointer: coarse) {
+      #menu-button.pulse { animation-duration: 1.8s; }
+    }
 
     /* --- Footer Logo: left-aligned with menu --- */
     footer {
@@ -132,6 +146,7 @@
       position: fixed; inset: 0;
       pointer-events: none; /* windows manage their own */
       z-index: 1500;
+      transition: opacity 120ms ease;
     }
 
     /* --- Window (Win95 chrome) --- */
@@ -218,9 +233,21 @@
       outline: 2px dotted #000; outline-offset: 2px;
     }
 
-    /* --- Mobile behavior: full-screen sheets, safe menu --- */
+    /* === MOBILE COMPACT STATES (JS toggles these classes) === */
+    body.is-mobile.menu-open #menu-button,
+    body.is-mobile.window-open #menu-button {
+      width: 72px;           /* compact while menu open or windows present */
+      opacity: 0.95;
+      transition: width 150ms ease;
+    }
+    body.is-mobile.menu-open #window-layer {
+      opacity: 0.75;
+      pointer-events: none;  /* prevent taps through the menu */
+    }
+
+    /* --- Existing mobile layout tweaks --- */
     @media (max-width: 768px) {
-      #menu-button { width: 140px; }
+      #menu-button { width: 140px; } /* base mobile size; compact class overrides when needed */
       #hm-menu {
         top: calc(20px + 140px + 12px);
         left: 12px; right: 12px;
@@ -235,6 +262,10 @@
       .hm-window-content { max-height: calc(100vh - 44px); }
       body { overflow: hidden; }
     }
+    @media (max-width: 420px) {
+      /* when button is compact (72px), drop menu a bit lower on tiny screens */
+      body.is-mobile.menu-open #hm-menu { top: calc(20px + 72px + 10px); }
+    }
   </style>
 </head>
 <body>
@@ -245,7 +276,7 @@
     Your browser does not support video backgrounds.
   </video>
 
-  <!-- Menu button (150px) -->
+  <!-- Menu button (150px, now with pulse) -->
   <img src="assets/menu-button.png" alt="Menu Button" id="menu-button" />
 
   <!-- Retro Dropdown Menu -->
@@ -297,17 +328,33 @@
       const menu = document.getElementById('hm-menu');
       const layer = document.getElementById('window-layer');
 
-      /* --- Menu toggle --- */
-      function toggleMenu() {
-        const isHidden = menu.classList.contains('hidden');
-        menu.classList.toggle('hidden', !isHidden);
-        menuBtn.classList.toggle('open', isHidden);
-        menuBtn.setAttribute('aria-expanded', String(isHidden));
+      /* --- Detect mobile + add pulse --- */
+      const isMobile = window.matchMedia('(max-width: 768px)').matches ||
+                       window.matchMedia('(pointer: coarse)').matches;
+      if (isMobile) document.body.classList.add('is-mobile');
+
+      // pulse cue to hint "tap me"
+      menuBtn.classList.add('pulse');
+
+      /* --- Menu toggle (mobile-aware) --- */
+      function toggleMenu(forceState) {
+        const willOpen = (typeof forceState === 'boolean')
+          ? forceState
+          : menu.classList.contains('hidden');
+
+        menu.classList.toggle('hidden', !willOpen);
+        menuBtn.classList.toggle('open', willOpen);
+        menuBtn.setAttribute('aria-expanded', String(willOpen));
+
+        if (isMobile) {
+          document.body.classList.toggle('menu-open', willOpen);
+        }
       }
+
       menuBtn.setAttribute('role', 'button');
       menuBtn.setAttribute('tabindex', '0');
       menuBtn.setAttribute('aria-expanded', 'false');
-      menuBtn.addEventListener('click', toggleMenu);
+      menuBtn.addEventListener('click', () => toggleMenu());
       menuBtn.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault(); toggleMenu();
@@ -319,6 +366,16 @@
       function bringToFront(win) {
         zSeed += 1;
         win.style.zIndex = zSeed;
+      }
+
+      /* --- Helpers for mobile compact state --- */
+      function windowsOpenCount() {
+        return layer.querySelectorAll('.hm-window').length;
+      }
+      function updateMobileWindowState() {
+        if (!isMobile) return;
+        const anyOpen = windowsOpenCount() > 0;
+        document.body.classList.toggle('window-open', anyOpen);
       }
 
       /* --- Helper: center, avoid menu if open, clamp to viewport --- */
@@ -333,14 +390,12 @@
         let top  = Math.round((vh - rect.height) / 2);
 
         // nudge away from visible menu
-        if (avoidMenu) {
+        if (avoidMenu && !menu.classList.contains('hidden')) {
           const m = menu.getBoundingClientRect();
-          if (!menu.classList.contains('hidden')) {
-            const overlapsHoriz = left < (m.right + margin);
-            const overlapsVert  = top < (m.bottom + margin);
-            if (overlapsHoriz) left = m.right + margin;
-            if (overlapsVert)  top  = Math.max(top, m.bottom + margin);
-          }
+          const overlapsHoriz = left < (m.right + margin);
+          const overlapsVert  = top < (m.bottom + margin);
+          if (overlapsHoriz) left = m.right + margin;
+          if (overlapsVert)  top  = Math.max(top, m.bottom + margin);
         }
 
         // clamp inside viewport
@@ -382,6 +437,7 @@
           bringToFront(win);
           attachWindowBehaviors(win);
           win.querySelector('.hm-window-content').focus();
+          updateMobileWindowState();
         });
 
         return win;
@@ -430,7 +486,10 @@
           titlebar.style.cursor = 'default';
         }
 
-        btnClose.addEventListener('click', () => win.remove());
+        btnClose.addEventListener('click', () => {
+          win.remove();
+          updateMobileWindowState();
+        });
         btnMin.addEventListener('click', () => win.classList.toggle('minimized'));
         btnFull.addEventListener('click', () => win.classList.toggle('fullscreen'));
 
@@ -499,7 +558,6 @@
           <h3>Higher Market Homies</h3>
           <ul>
             <li><a href="https://www.basecolors.com" target="_blank" rel="noopener">Base Colors</a></li>
-            <li><a href="https://www.operatingsystem.io/" target="_blank" rel="noopener">Operating System</a></li>            
             <li><a href="https://www.spacetobe.xyz/beings" target="_blank" rel="noopener">Beings Club</a></li>
             <li><a href="https://chones.xyz/" target="_blank" rel="noopener">Chones</a></li>
           </ul>
@@ -552,25 +610,32 @@
         `
       };
 
-      /* --- Menu click: open windows (multiple allowed) --- */
+      /* --- Menu click: close menu on mobile, open window, keep compact --- */
       menu.addEventListener('click', (e) => {
         const t = e.target;
         if (t.matches('.hm-open-window')) {
           const key = t.getAttribute('data-window');
           const title = t.textContent.trim();
           const html = windowContent[key] || '<p>Coming soon.</p>';
+
+          if (isMobile) toggleMenu(false);  // close menu before opening window
           createWindow(title, html);
+          updateMobileWindowState();
         }
       });
 
       /* Close menu with Escape if open, otherwise close topmost window */
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-          if (!menu.classList.contains('hidden')) toggleMenu();
-          else {
+          if (!menu.classList.contains('hidden')) {
+            toggleMenu(false);
+          } else {
             const wins = [...layer.querySelectorAll('.hm-window')];
             wins.sort((a,b)=> (parseInt(b.style.zIndex||0)-parseInt(a.style.zIndex||0)));
-            if (wins[0]) wins[0].remove();
+            if (wins[0]) {
+              wins[0].remove();
+              updateMobileWindowState();
+            }
           }
         }
       });
