@@ -152,7 +152,7 @@
     /* --- Window (Win95 chrome) --- */
     .hm-window {
       position: absolute;
-      /* left/top are set in JS to center and clamp */
+      /* left/top set in JS to center & clamp */
       width: min(780px, 92vw);
       max-height: 76vh;
       background: var(--win-bg);
@@ -164,7 +164,8 @@
         0 16px 48px rgba(0,0,0,0.35);
       border-radius: 2px;
       overflow: hidden;
-      pointer-events: auto; /* accept events */
+      pointer-events: auto;
+      touch-action: none; /* enables smooth pointer dragging on touch */
     }
     .hm-window.fullscreen {
       top: 0 !important; left: 0 !important;
@@ -179,8 +180,9 @@
       background: linear-gradient(var(--title-grad-top), var(--title-grad-bot));
       color: #fff;
       border-bottom: 2px solid var(--win-dark);
-      cursor: move; /* draggable */
+      cursor: move;
       user-select: none;
+      -webkit-user-select: none;
     }
     .hm-title {
       font-weight: 700;
@@ -233,37 +235,40 @@
       outline: 2px dotted #000; outline-offset: 2px;
     }
 
-    /* === MOBILE COMPACT STATES (JS toggles these classes) === */
-    body.is-mobile.menu-open #menu-button,
-    body.is-mobile.window-open #menu-button {
-      width: 72px;           /* compact while menu open or windows present */
-      opacity: 0.95;
-      transition: width 150ms ease;
-    }
-    body.is-mobile.menu-open #window-layer {
-      opacity: 0.75;
-      pointer-events: none;  /* prevent taps through the menu */
-    }
-
-    /* --- Existing mobile layout tweaks --- */
+    /* === MOBILE: card-style windows (no forced fullscreen) === */
     @media (max-width: 768px) {
-      #menu-button { width: 140px; } /* base mobile size; compact class overrides when needed */
+      #menu-button { width: 140px; } /* base size; compact class will override */
       #hm-menu {
         top: calc(20px + 140px + 12px);
         left: 12px; right: 12px;
         min-width: 0;
       }
       .hm-window {
-        top: 0 !important; left: 0 !important;
-        width: 100vw !important; height: 100vh !important;
-        max-height: 100vh !important; border-radius: 0 !important;
+        width: 94vw !important;
+        max-height: 80vh !important;
+        border-radius: 10px !important;
       }
-      .hm-window-chrome { cursor: default; }
-      .hm-window-content { max-height: calc(100vh - 44px); }
+      .hm-window-content {
+        max-height: calc(80vh - 44px) !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
       body { overflow: hidden; }
+      .hm-window-chrome { cursor: default; }
+    }
+
+    /* === JS-toggled compact states for mobile === */
+    body.is-mobile.menu-open #menu-button,
+    body.is-mobile.window-open #menu-button {
+      width: 72px;
+      opacity: 0.95;
+      transition: width 150ms ease;
+    }
+    body.is-mobile.menu-open #window-layer {
+      opacity: 0.75;
+      pointer-events: none;
     }
     @media (max-width: 420px) {
-      /* when button is compact (72px), drop menu a bit lower on tiny screens */
       body.is-mobile.menu-open #hm-menu { top: calc(20px + 72px + 10px); }
     }
   </style>
@@ -276,7 +281,7 @@
     Your browser does not support video backgrounds.
   </video>
 
-  <!-- Menu button (150px, now with pulse) -->
+  <!-- Menu button (150px, with pulse) -->
   <img src="assets/menu-button.png" alt="Menu Button" id="menu-button" />
 
   <!-- Retro Dropdown Menu -->
@@ -332,8 +337,6 @@
       const isMobile = window.matchMedia('(max-width: 768px)').matches ||
                        window.matchMedia('(pointer: coarse)').matches;
       if (isMobile) document.body.classList.add('is-mobile');
-
-      // pulse cue to hint "tap me"
       menuBtn.classList.add('pulse');
 
       /* --- Menu toggle (mobile-aware) --- */
@@ -378,18 +381,16 @@
         document.body.classList.toggle('window-open', anyOpen);
       }
 
-      /* --- Helper: center, avoid menu if open, clamp to viewport --- */
+      /* --- Center & clamp to viewport, nudge away from menu if open --- */
       function centerAndClamp(win, avoidMenu = true) {
         const rect = win.getBoundingClientRect();
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        const margin = 12; // safe padding from edges
+        const margin = 12;
 
-        // ideal center
         let left = Math.round((vw - rect.width) / 2);
         let top  = Math.round((vh - rect.height) / 2);
 
-        // nudge away from visible menu
         if (avoidMenu && !menu.classList.contains('hidden')) {
           const m = menu.getBoundingClientRect();
           const overlapsHoriz = left < (m.right + margin);
@@ -398,7 +399,6 @@
           if (overlapsVert)  top  = Math.max(top, m.bottom + margin);
         }
 
-        // clamp inside viewport
         left = Math.max(margin, Math.min(vw - rect.width  - margin, left));
         top  = Math.max(margin, Math.min(vh - rect.height - margin, top));
 
@@ -450,41 +450,39 @@
         const btnFull = win.querySelector('.hm-fullscreen');
         const btnClose = win.querySelector('.hm-close');
 
-        // Dragging (disabled on coarse pointers to avoid scroll conflicts)
-        const allowDrag = !window.matchMedia('(pointer: coarse)').matches;
-        let drag = { active:false, offsetX:0, offsetY:0 };
+        // Unified pointer-based dragging (works for mouse + touch)
+        let dragActive = false;
+        let offsetX = 0, offsetY = 0;
 
-        if (allowDrag) {
-          titlebar.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.hm-window-controls')) return;
-            drag.active = true;
-            bringToFront(win);
-            const rect = win.getBoundingClientRect();
-            drag.offsetX = e.clientX - rect.left;
-            drag.offsetY = e.clientY - rect.top;
-            document.body.style.userSelect = 'none';
-          });
+        titlebar.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.hm-window-controls')) return;
+          dragActive = true;
+          bringToFront(win);
+          const rect = win.getBoundingClientRect();
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
+          win.setPointerCapture?.(e.pointerId);
+        });
 
-          window.addEventListener('mousemove', (e) => {
-            if (!drag.active) return;
-            const vw = window.innerWidth, vh = window.innerHeight;
-            const rect = win.getBoundingClientRect();
-            let x = e.clientX - drag.offsetX;
-            let y = e.clientY - drag.offsetY;
-            const margin = 12;
-            x = Math.max(margin, Math.min(vw - rect.width  - margin, x));
-            y = Math.max(margin, Math.min(vh - rect.height - margin, y));
-            win.style.left = x + 'px';
-            win.style.top  = y + 'px';
-          });
+        window.addEventListener('pointermove', (e) => {
+          if (!dragActive) return;
+          const vw = window.innerWidth, vh = window.innerHeight;
+          const rect = win.getBoundingClientRect();
+          let x = e.clientX - offsetX;
+          let y = e.clientY - offsetY;
+          const margin = 12;
+          x = Math.max(margin, Math.min(vw - rect.width  - margin, x));
+          y = Math.max(margin, Math.min(vh - rect.height - margin, y));
+          win.style.left = x + 'px';
+          win.style.top  = y + 'px';
+          e.preventDefault();
+        }, { passive: false });
 
-          window.addEventListener('mouseup', () => {
-            drag.active = false;
-            document.body.style.userSelect = '';
-          });
-        } else {
-          titlebar.style.cursor = 'default';
-        }
+        window.addEventListener('pointerup', (e) => {
+          if (!dragActive) return;
+          dragActive = false;
+          win.releasePointerCapture?.(e.pointerId);
+        });
 
         btnClose.addEventListener('click', () => {
           win.remove();
@@ -610,7 +608,7 @@
         `
       };
 
-      /* --- Menu click: close menu on mobile, open window, keep compact --- */
+      /* --- Menu: close on mobile, open window, keep compact --- */
       menu.addEventListener('click', (e) => {
         const t = e.target;
         if (t.matches('.hm-open-window')) {
@@ -624,7 +622,7 @@
         }
       });
 
-      /* Close menu with Escape if open, otherwise close topmost window */
+      /* ESC to close menu or topmost window */
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           if (!menu.classList.contains('hidden')) {
