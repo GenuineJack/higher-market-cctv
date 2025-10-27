@@ -1,0 +1,12 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "Higher Market",
+    "iconUrl": "https://example.com/assets/splash.png",
+    "homeUrl": "https://example.com",
+    "imageUrl": "https://example.com/assets/og-image.png",
+    "buttonTitle": "Open Higher Market",
+    "splashImageUrl": "https://example.com/assets/splash.png",
+    "splashBackgroundColor": "#c0c0c0"
+  }
+}
