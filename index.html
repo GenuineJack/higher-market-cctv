@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Higher Market</title>
+  
+  <!--
+    Farcaster Mini App Embed
+    The fc:miniapp and fc:frame meta tags allow this page to render as a rich
+    embed inside Farcaster clients. The JSON string below follows the Mini App
+    Embed specification (version 1) and points to your app’s open‑graph image
+    and splash assets. Update the domain (example.com) to your production
+    domain when deploying your app.
+  -->
+  <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://example.com/assets/og-image.png","button":{"title":"Open Higher Market","action":{"type":"launch_miniapp","name":"Higher Market","url":"https://example.com","splashImageUrl":"https://example.com/assets/splash.png","splashBackgroundColor":"#c0c0c0"}}}' />
+  <!-- For backward compatibility with clients that still parse the older fc:frame tag -->
+  <meta name="fc:frame" content='{"version":"1","imageUrl":"https://example.com/assets/og-image.png","button":{"title":"Open Higher Market","action":{"type":"launch_frame","name":"Higher Market","url":"https://example.com","splashImageUrl":"https://example.com/assets/splash.png","splashBackgroundColor":"#c0c0c0"}}}' />
   <link rel="icon" href="assets/favicon.ico" />
 
   <style>
@@ -674,6 +686,26 @@
         radioBtn.setAttribute('aria-label', 'Play Higher Radio');
       });
     })();
+  </script>
+
+  <!--
+    Import the Farcaster Mini App SDK and signal readiness.
+    The sdk.actions.ready() call hides the default splash screen shown when
+    users open your Mini App. Without calling ready(), the splash screen
+    will remain and users will see an infinite loading state. See the
+    Farcaster documentation for more details.
+  -->
+  <script type="module">
+    import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
+    // Call ready() once the page has finished loading. Delay until 'load' to
+    // avoid layout shifts and to ensure that all assets are in place.
+    window.addEventListener('load', async () => {
+      try {
+        await sdk.actions.ready();
+      } catch (err) {
+        console.error('Farcaster ready() failed:', err);
+      }
+    });
   </script>
 </body>
 </html>
