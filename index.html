@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Site Access</title>
+
+  <!--
+    Password Gate (Single File)
+    ------------------------------------------------------------
+    HOW TO USE (2 steps):
+      1) Rename your existing site entry file from index.html -> app.html
+      2) Drop THIS file in your project root as index.html
+
+    When you're ready to launch:
+      - Delete THIS file
+      - Rename app.html back to index.html
+
+    This file expects your background video at: assets/background.mp4
+    You can change that path below if your asset lives elsewhere.
+  -->
+
+  <style>
+    :root {
+      --glass-bg: rgba(255,255,255,0.12);
+      --glass-border: rgba(255,255,255,0.3);
+      --text: #ffffff;
+      --muted: rgba(255,255,255,0.75);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+      background: #000;
+    }
+    .bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .bg video {
+      position: absolute;
+      top: 50%; left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      filter: brightness(0.75) contrast(1.05) saturate(1.1);
+    }
+    .wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 440px;
+      border: 1px solid var(--glass-border);
+      background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.65));
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+      animation: pop 320ms ease-out;
+    }
+    @keyframes pop { from { transform: translateY(6px); opacity: 0 } to { transform: none; opacity: 1 } }
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+    p.sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    form { display: grid; gap: 14px; }
+    label {
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.35);
+      color: var(--text);
+      outline: none;
+      font-size: 16px;
+    }
+    input[type="password"]::placeholder { color: rgba(255,255,255,0.55); }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #ffffff;
+      color: #000;
+    }
+    button:disabled { opacity: 0.75; cursor: wait; }
+    .err {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #ffb3b3;
+      min-height: 18px;
+    }
+    .foot {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .badge {
+      border: 1px solid var(--glass-border);
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(0,0,0,0.25);
+    }
+    input:focus, button:focus { outline: 2px dashed #fff; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen background video -->
+  <div class="bg" aria-hidden="true">
+    <video src="assets/background.mp4" autoplay muted loop playsinline></video>
+  </div>
+
+  <div class="wrap">
+    <main class="card" role="dialog" aria-labelledby="pw-title" aria-describedby="pw-desc">
+      <h1 id="pw-title">Enter Password</h1>
+      <p id="pw-desc" class="sub">This site is locked while we prep the relaunch launch. If you have the password, enter it below.</p>
+
+      <form id="pw-form" novalidate>
+        <div>
+          <label for="pw">Password</label>
+          <div class="row">
+            <input id="pw" name="pw" type="password" placeholder="••••••••" autocomplete="current-password" required />
+            <button id="submit" type="submit">Unlock</button>
+          </div>
+        </div>
+        <div id="err" class="err" aria-live="polite"></div>
+      </form>
+
+      <div class="foot">
+        <span class="badge">HIGHER MODE</span>
+        <span>© <span id="year"></span> All rights entitled.</span>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ========== CONFIG (Plain Password) ==========
+    // Simple & visible in View Source. Good enough to keep casual visitors out.
+    const PASSWORD_PLAIN = "4815162342";     // <-- change this to your desired password
+    const APP_ENTRY = "app.html";        // your real site (rename your current index.html to app.html)
+    const rememberAcrossTabs = true;     // keep unlocked in localStorage until tab/browser is closed
+
+    const errEl = document.getElementById("err");
+    const form = document.getElementById("pw-form");
+    const pw = document.getElementById("pw");
+    const submitBtn = document.getElementById("submit");
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    // If already unlocked, go straight to the app
+    try {
+      if ((rememberAcrossTabs ? localStorage : sessionStorage).getItem("gate:unlocked") === "true") {
+        window.location.replace(APP_ENTRY);
+      }
+    } catch (e) {}
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.textContent = "";
+      const value = pw.value.trim();
+      if (!value) {
+        errEl.textContent = "Please enter a password.";
+        pw.focus();
+        return;
+      }
+      try {
+        submitBtn.disabled = true;
+        if (value === PASSWORD_PLAIN) {
+          try {
+            (rememberAcrossTabs ? localStorage : sessionStorage).setItem("gate:unlocked", "true");
+          } catch (e) {}
+          window.location.assign(APP_ENTRY);
+        } else {
+          errEl.textContent = "Incorrect password. Try again.";
+          pw.value = "";
+          pw.focus();
+        }
+      } catch (err) {
+        errEl.textContent = "Something went wrong. Please try again.";
+        console.error(err);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
