@@ -1,0 +1,12 @@
+{
+  "frame": {
+    "version": "1",
+    "name": "Higher Market",
+    "iconUrl": "https://highermarket.xyz/assets/splash.png",
+    "homeUrl": "https://highermarket.xyz/app.html",
+    "imageUrl": "https://highermarket.xyz/assets/og-image.png",
+    "buttonTitle": "Step Inside the Higher Market",
+    "splashImageUrl": "https://highermarket.xyz/assets/splash.png",
+    "splashBackgroundColor": "#000000"
+  }
+}
