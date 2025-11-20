@@ -217,5 +217,26 @@
       }
     });
   </script>
+
+ <!--
+    Import the Farcaster Mini App SDK and signal readiness.
+    The sdk.actions.ready() call hides the default splash screen shown when
+    users open your Mini App. Without calling ready(), the splash screen
+    will remain and users will see an infinite loading state. See the
+    Farcaster documentation for more details.
+  -->
+  <script type="module">
+    import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
+    // Call ready() once the page has finished loading. Delay until 'load' to
+    // avoid layout shifts and to ensure that all assets are in place.
+    window.addEventListener('load', async () => {
+      try {
+        await sdk.actions.ready();
+      } catch (err) {
+        console.error('Farcaster ready() failed:', err);
+      }
+    });
+  </script>
+
 </body>
 </html>
