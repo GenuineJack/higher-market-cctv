@@ -8,5 +8,10 @@
     "buttonTitle": "Step Inside the Higher Market",
     "splashImageUrl": "https://highermarket.xyz/assets/splash.png",
     "splashBackgroundColor": "#000000"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjIxODk1NywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDFmYmJCYjZiQzBiNjZlOUJDYjRDYkI0OTI0RjZmNDlDNDFmM2NmRDAifQ",
+    "payload": "eyJkb21haW4iOiJoaWdoZXJtYXJrZXQueHl6In0",
+    "signature": "EsOyYpCTAkbIVqELDexUt7W6GE7gruoF8dZjV/NvY+1aD8OI32qs/a/apiOqWGpumLTOIRV41WL2DDH/ARZJURw="
   }
 }
