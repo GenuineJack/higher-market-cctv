@@ -1,238 +1,720 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Site Access</title>
-
-  <!--
-    Password Gate (Single File)
-    ------------------------------------------------------------
-    HOW TO USE (2 steps):
-      1) Rename your existing site entry file from index.html -> app.html
-      2) Drop THIS file in your project root as index.html
-
-    When you're ready to launch:
-      - Delete THIS file
-      - Rename app.html back to index.html
-
-    This file expects your background video at: assets/background.mp4
-    You can change that path below if your asset lives elsewhere.
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Higher Market</title>
+<meta
+  name="fc:miniapp"
+  content='{"version":"1","imageUrl":"https://highermarket.xyz/assets/og-image.png","button":{"title":"Step Inside the Higher Market","action":{"type":"launch_frame","name":"Higher Market","url":"https://highermarket.xyz/","splashImageUrl":"https://highermarket.xyz/assets/splash.png","splashBackgroundColor":"#000000"}}}'
+/><!--
+    Farcaster Mini App Embed
+    The fc:miniapp meta tag allows this page to render as a rich
+    embed inside Farcaster clients. The JSON string below follows the Mini App
+    Embed specification (version 1) and points to your app’s open‑graph image
+    and splash assets. Update the domain (example.com) to your production
+    domain when deploying your app.
   -->
+<!-- For backward compatibility with clients that still parse the older fc:frame tag -->
+<link rel="icon" href="assets/favicon.ico" />
 
   <style>
+    /* --- Base / Reset --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --glass-bg: rgba(255,255,255,0.12);
-      --glass-border: rgba(255,255,255,0.3);
-      --text: #ffffff;
-      --muted: rgba(255,255,255,0.75);
+      --win-bg: #c0c0c0;        /* Win95 gray */
+      --win-dark: #808080;      /* dark gray edge */
+      --win-mid:  #b0b0b0;
+      --win-light:#ffffff;      /* light edge */
+      --title-grad-top:#02007a; /* classic blue */
+      --title-grad-bot:#0a46aa;
+      --text: #000;
     }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
     body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      font-family: "MS Sans Serif", Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 12px;
       color: var(--text);
+      height: 100vh;
       overflow: hidden;
-      background: #000;
+      background: var(--win-bg);
+      position: relative;
     }
-    .bg {
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      overflow: hidden;
-    }
-    .bg video {
-      position: absolute;
-      top: 50%; left: 50%;
-      min-width: 100%;
-      min-height: 100%;
-      transform: translate(-50%, -50%);
+
+    /* --- Background Video --- */
+    #background-video {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
       object-fit: cover;
-      filter: brightness(0.75) contrast(1.05) saturate(1.1);
+      z-index: -1;
+      filter: contrast(0.9) brightness(0.85);
     }
-    .wrap {
-      height: 100%;
-      display: grid;
-      place-items: center;
-      padding: 24px;
+
+    /* --- Menu Button (150px) + Pulse --- */
+    #menu-button {
+      position: fixed;
+      top: 20px; left: 20px;
+      width: 150px;
+      height: auto;
+      cursor: pointer;
+      z-index: 2000;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      transform-origin: center;
     }
-    .card {
+    #menu-button.open { width: 130px; transition: width 140ms ease; }
+
+    /* Pulse cue */
+    @keyframes slowPulse {
+      0%   { transform: translateY(0) scale(1);   filter: none; }
+      50%  { transform: translateY(-2px) scale(1.04); filter: drop-shadow(0 2px 0 rgba(0,0,0,0.15)); }
+      100% { transform: translateY(0) scale(1);   filter: none; }
+    }
+    #menu-button.pulse {
+      animation: slowPulse 2.2s ease-in-out infinite;
+    }
+    @media (pointer: coarse) {
+      #menu-button.pulse { animation-duration: 1.8s; }
+    }
+
+    /* --- Footer Logo: left-aligned with menu --- */
+    footer {
+      position: fixed;
+      bottom: 20px; left: 20px;
+      z-index: 1000;
+    }
+    #footer-logo { width: 120px; height: auto; }
+
+    /* --- Radio Icon (audio toggle) --- */
+    #radio-toggle {
+      position: fixed;
+      right: 20px; bottom: 20px;           /* align bottom with footer logo */
+      width: 69px;
+      height: 69px;
+      z-index: 2000;
+      cursor: pointer;
+      user-select: none;
+      image-rendering: crisp-edges;
+    }
+    #radio-toggle.playing {
+      transform: scale(0.98);
+      filter: brightness(0.95);
+    }
+
+    /* --- Hidden utility --- */
+    .hidden { display: none; }
+
+    /* --- Retro Dropdown Menu --- */
+    #hm-menu {
+      position: fixed;
+      top: 190px; /* ~150px button height + 20px top + breathing room */
+      left: 20px;
+      z-index: 2100;
+      background: var(--win-bg);
+      padding: 10px 12px;
+      min-width: 240px;
+      border: 2px solid var(--win-dark);
+      box-shadow:
+        inset -2px -2px 0 var(--win-light),
+        inset  2px  2px 0 var(--win-dark),
+        6px 6px 0 rgba(0,0,0,0.15);
+      border-radius: 2px;
+    }
+    #hm-menu h4 {
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-shadow: 0 1px 0 var(--win-light);
+    }
+    #hm-menu ul { list-style: none; }
+    #hm-menu li { margin: 6px 0; }
+    #hm-menu a, #hm-menu button {
+      appearance: none;
+      background: var(--win-bg);
+      color: #000;
+      border: 2px solid var(--win-dark);
+      box-shadow:
+        inset -2px -2px 0 var(--win-light),
+        inset  2px  2px 0 var(--win-dark);
+      border-radius: 2px;
+      padding: 6px 10px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-block;
       width: 100%;
-      max-width: 440px;
-      border: 1px solid var(--glass-border);
-      background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.65));
-      -webkit-backdrop-filter: blur(10px);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 28px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.55);
-      animation: pop 320ms ease-out;
+      text-align: left;
     }
-    @keyframes pop { from { transform: translateY(6px); opacity: 0 } to { transform: none; opacity: 1 } }
-    h1 {
-      margin: 0 0 6px 0;
-      font-size: 22px;
-      letter-spacing: 0.2px;
+    #hm-menu a:hover, #hm-menu button:hover {
+      filter: brightness(0.96);
+      background: var(--win-mid);
     }
-    p.sub {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 14px;
+    #hm-menu .sep {
+      height: 0; margin: 8px 0;
+      border-top: 2px solid var(--win-dark);
+      box-shadow: 0 2px 0 var(--win-light);
+    }
+
+    /* --- Window Manager container (for stacking) --- */
+    #window-layer {
+      position: fixed; inset: 0;
+      pointer-events: none; /* windows manage their own */
+      z-index: 1500;
+      transition: opacity 120ms ease;
+    }
+
+    /* --- Window (Win95 chrome) --- */
+    .hm-window {
+      position: absolute;
+      /* left/top set in JS to center & clamp */
+      width: min(780px, 92vw);
+      max-height: 76vh;
+      background: var(--win-bg);
+      color: #000;
+      border: 2px solid var(--win-dark);
+      box-shadow:
+        inset -2px -2px 0 var(--win-light),
+        inset  2px  2px 0 var(--win-dark),
+        0 16px 48px rgba(0,0,0,0.35);
+      border-radius: 2px;
+      overflow: hidden;
+      pointer-events: auto;
+      touch-action: none; /* enables smooth pointer dragging on touch */
+    }
+    .hm-window.fullscreen {
+      top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
+      border-radius: 0 !important;
+    }
+    .hm-window.minimized .hm-window-content { display: none; }
+
+    .hm-window-chrome {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 8px;
+      background: linear-gradient(var(--title-grad-top), var(--title-grad-bot));
+      color: #fff;
+      border-bottom: 2px solid var(--win-dark);
+      cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .hm-title {
+      font-weight: 700;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hm-window-controls { display: flex; align-items: center; }
+    .hm-window-controls button {
+      margin-left: 6px; width: 30px; height: 24px;
+      background: var(--win-bg);
+      border: 2px solid var(--win-dark);
+      box-shadow:
+        inset -2px -2px 0 var(--win-light),
+        inset  2px  2px 0 var(--win-dark);
+      border-radius: 2px; color: #000; cursor: pointer;
+    }
+    .hm-window-controls button:hover { filter: brightness(0.96); }
+
+    .hm-window-content {
+      padding: 14px;
+      max-height: calc(76vh - 44px);
+      overflow: auto;
       line-height: 1.45;
     }
-    form { display: grid; gap: 14px; }
-    label {
-      font-size: 12px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: end;
-    }
-    input[type="password"] {
-      width: 100%;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.25);
-      background: rgba(0,0,0,0.35);
-      color: var(--text);
-      outline: none;
-      font-size: 16px;
-    }
-    input[type="password"]::placeholder { color: rgba(255,255,255,0.55); }
-    button {
-      appearance: none;
-      border: 0;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-weight: 700;
-      cursor: pointer;
-      background: #ffffff;
+    .hm-window-content h2 { font-size: 18px; margin-bottom: 8px; }
+    .hm-window-content h3 { font-size: 15px; margin: 14px 0 6px; }
+    .hm-window-content p  { margin: 8px 0; }
+    .hm-window-content ul { margin: 8px 0 8px 18px; }
+    .hm-window-content li { margin: 4px 0; }
+
+    /* Buttons inside content */
+    .hm-btn {
+      display: inline-block;
+      margin: 8px 8px 0 0;
+      padding: 8px 10px;
+      background: var(--win-bg);
       color: #000;
+      text-decoration: none;
+      border: 2px solid var(--win-dark);
+      box-shadow:
+        inset -2px -2px 0 var(--win-light),
+        inset  2px  2px 0 var(--win-dark);
+      border-radius: 2px;
+      font-weight: 700;
     }
-    button:disabled { opacity: 0.75; cursor: wait; }
-    .err {
-      margin-top: 4px;
-      font-size: 13px;
-      color: #ffb3b3;
-      min-height: 18px;
+    .hm-btn:hover { filter: brightness(0.96); }
+
+    /* Focus states */
+    #hm-menu button:focus, .hm-window-controls button:focus, a:focus, .hm-btn:focus, #radio-toggle:focus {
+      outline: 2px dotted #000; outline-offset: 2px;
     }
-    .foot {
-      margin-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 12px;
+
+    /* === MOBILE: card-style windows (no forced fullscreen) === */
+    @media (max-width: 768px) {
+      #menu-button { width: 140px; } /* base size; compact class will override */
+      #hm-menu {
+        top: calc(20px + 140px + 12px);
+        left: 12px; right: 12px;
+        min-width: 0;
+      }
+      .hm-window {
+        width: 94vw !important;
+        max-height: 80vh !important;
+        border-radius: 10px !important;
+      }
+      .hm-window-content {
+        max-height: calc(80vh - 44px) !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+      body { overflow: hidden; }
+      .hm-window-chrome { cursor: default; }
     }
-    .badge {
-      border: 1px solid var(--glass-border);
-      padding: 3px 8px; border-radius: 999px;
-      background: rgba(0,0,0,0.25);
+
+    /* === JS-toggled compact states for mobile === */
+    body.is-mobile.menu-open #menu-button,
+    body.is-mobile.window-open #menu-button {
+      width: 72px;
+      opacity: 0.95;
+      transition: width 150ms ease;
     }
-    input:focus, button:focus { outline: 2px dashed #fff; outline-offset: 2px; }
+    body.is-mobile.menu-open #window-layer {
+      opacity: 0.75;
+      pointer-events: none;
+    }
+    @media (max-width: 420px) {
+      body.is-mobile.menu-open #hm-menu { top: calc(20px + 72px + 10px); }
+    }
   </style>
 </head>
 <body>
-  <!-- Fullscreen background video -->
-  <div class="bg" aria-hidden="true">
-    <video src="assets/background.mp4" autoplay muted loop playsinline></video>
-  </div>
 
-  <div class="wrap">
-    <main class="card" role="dialog" aria-labelledby="pw-title" aria-describedby="pw-desc">
-      <h1 id="pw-title">Higher Market Preview</h1>
-      <p id="pw-desc" class="sub">We’re stocking the shelves. Enter the password to access the backroom</p>
+  <!-- Background video -->
+  <video id="background-video" autoplay muted loop playsinline>
+    <source src="assets/background.mp4" type="video/mp4" />
+    Your browser does not support video backgrounds.
+  </video>
 
-      <form id="pw-form" novalidate>
-        <div>
-          <label for="pw">Credentials</label>
-          <div class="row">
-            <input id="pw" name="pw" type="password" placeholder="••••••••" autocomplete="current-password" required />
-            <button id="submit" type="submit">Unlock</button>
-          </div>
-        </div>
-        <div id="err" class="err" aria-live="polite"></div>
-      </form>
+  <!-- Menu button (150px, with pulse) -->
+  <img src="assets/menu-button.png" alt="Menu Button" id="menu-button" />
 
-      <div class="foot">
-        <span class="badge">↑ HIGHER ↑</span>
-        <span>© <span id="year"></span> All rights entitled.</span>
-      </div>
-    </main>
-  </div>
+  <!-- Retro Dropdown Menu -->
+  <nav id="hm-menu" class="hidden" aria-label="Main">
+  <h4>Higher Market</h4>
+  <ul>
+    <li>
+      <a href="https://shop.slice.so/store/2158" target="_blank" rel="noopener">
+        Shop
+      </a>
+    </li>
+    <li><button class="hm-open-window" data-window="about">About</button></li>
+    <li><button class="hm-open-window" data-window="friends">Friends</button></li>
+    <!-- Replaced Projects with $HigherMarket external link -->
+    <li>
+      <a href="https://app.uniswap.org/swap?outputCurrency=0x5eF74b81fA8818F71e86024561b0b895f1D22204&chain=base" target="_blank" rel="noopener">
+        $HigherMarket
+      </a>
+    </li>
+    <li><button class="hm-open-window" data-window="collaborate">Collaborate</button></li>
+    <li class="sep" aria-hidden="true"></li>
+    <li>
+      <a href="https://paragraph.com/@highermarket" target="_blank" rel="noopener">
+        Transmissions
+      </a>
+    </li>
+  </ul>
+</nav>
+
+  <!-- Window Layer (multiple windows mount here) -->
+  <div id="window-layer"></div>
+
+  <!-- Footer logo (left-aligned with menu) -->
+  <footer>
+    <img src="assets/higher-market-logo.png" alt="Higher Market Logo" id="footer-logo" />
+  </footer>
+
+  <!-- Radio icon + audio element -->
+  <img
+    id="radio-toggle"
+    src="assets/radio-icon.png"
+    alt="Toggle Higher Radio"
+    role="button"
+    tabindex="0"
+    aria-pressed="false"
+    aria-label="Play Higher FM"
+    title="LGHT Mixtape from Higher FM"
+  />
+  <audio id="radio-audio" src="https://static1.squarespace.com/static/658488e71ebc22517acdad54/t/691dd3d9aec4a51ec1cc71eb/1763562481126/radio-audio.mp3/original/radio-audio.mp3" preload="none"></audio>
 
   <script>
-    // ========== CONFIG (Plain Password) ==========
-    // Good enough to keep casual visitors out.
-    const PASSWORD_PLAIN = "444437";     // <-- change this to your desired password
-    const APP_ENTRY = "app.html";        // your real site (rename your current index.html to app.html)
-    const rememberAcrossTabs = true;     // keep unlocked in localStorage until tab/browser is closed
+    (function () {
+      const menuBtn = document.getElementById('menu-button');
+      const menu = document.getElementById('hm-menu');
+      const layer = document.getElementById('window-layer');
 
-    const errEl = document.getElementById("err");
-    const form = document.getElementById("pw-form");
-    const pw = document.getElementById("pw");
-    const submitBtn = document.getElementById("submit");
-    document.getElementById("year").textContent = new Date().getFullYear();
+      /* --- Detect mobile + add pulse --- */
+      const isMobile = window.matchMedia('(max-width: 768px)').matches ||
+                       window.matchMedia('(pointer: coarse)').matches;
+      if (isMobile) document.body.classList.add('is-mobile');
+      menuBtn.classList.add('pulse');
 
-    // If already unlocked, go straight to the app
-    try {
-      if ((rememberAcrossTabs ? localStorage : sessionStorage).getItem("gate:unlocked") === "true") {
-        window.location.replace(APP_ENTRY);
-      }
-    } catch (e) {}
+      /* --- Menu toggle (mobile-aware) --- */
+      function toggleMenu(forceState) {
+        const willOpen = (typeof forceState === 'boolean')
+          ? forceState
+          : menu.classList.contains('hidden');
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      errEl.textContent = "";
-      const value = pw.value.trim();
-      if (!value) {
-        errEl.textContent = "Please enter a password.";
-        pw.focus();
-        return;
-      }
-      try {
-        submitBtn.disabled = true;
-        if (value === PASSWORD_PLAIN) {
-          try {
-            (rememberAcrossTabs ? localStorage : sessionStorage).setItem("gate:unlocked", "true");
-          } catch (e) {}
-          window.location.assign(APP_ENTRY);
-        } else {
-          errEl.textContent = "Incorrect password. Try again.";
-          pw.value = "";
-          pw.focus();
+        menu.classList.toggle('hidden', !willOpen);
+        menuBtn.classList.toggle('open', willOpen);
+        menuBtn.setAttribute('aria-expanded', String(willOpen));
+
+        if (isMobile) {
+          document.body.classList.toggle('menu-open', willOpen);
         }
-      } catch (err) {
-        errEl.textContent = "Something went wrong. Please try again.";
-        console.error(err);
-      } finally {
-        submitBtn.disabled = false;
       }
-    });
+
+      menuBtn.setAttribute('role', 'button');
+      menuBtn.setAttribute('tabindex', '0');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.addEventListener('click', () => toggleMenu());
+      menuBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); toggleMenu();
+        }
+      });
+
+      /* --- Z-index manager --- */
+      let zSeed = 3000; // ensure above menu/button
+      function bringToFront(win) {
+        zSeed += 1;
+        win.style.zIndex = zSeed;
+      }
+
+      /* --- Helpers for mobile compact state --- */
+      function windowsOpenCount() {
+        return layer.querySelectorAll('.hm-window').length;
+      }
+      function updateMobileWindowState() {
+        if (!isMobile) return;
+        const anyOpen = windowsOpenCount() > 0;
+        document.body.classList.toggle('window-open', anyOpen);
+      }
+
+      /* --- Center & clamp to viewport, nudge away from menu if open --- */
+      function centerAndClamp(win, avoidMenu = true) {
+        const rect = win.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const margin = 12;
+
+        let left = Math.round((vw - rect.width) / 2);
+        let top  = Math.round((vh - rect.height) / 2);
+
+        if (avoidMenu && !menu.classList.contains('hidden')) {
+          const m = menu.getBoundingClientRect();
+          const overlapsHoriz = left < (m.right + margin);
+          const overlapsVert  = top < (m.bottom + margin);
+          if (overlapsHoriz) left = m.right + margin;
+          if (overlapsVert)  top  = Math.max(top, m.bottom + margin);
+        }
+
+        left = Math.max(margin, Math.min(vw - rect.width  - margin, left));
+        top  = Math.max(margin, Math.min(vh - rect.height - margin, top));
+
+        win.style.left = left + 'px';
+        win.style.top  = top  + 'px';
+      }
+
+      /* --- Create a centered, draggable window --- */
+      function createWindow(title, html) {
+        const id = 'win_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
+        const win = document.createElement('div');
+        win.className = 'hm-window';
+        win.id = id;
+
+        // Offscreen initially to avoid flash while measuring
+        win.style.left = '-9999px';
+        win.style.top  = '-9999px';
+
+        win.innerHTML = `
+          <div class="hm-window-chrome">
+            <span class="hm-title">${title}</span>
+            <div class="hm-window-controls">
+              <button class="hm-minimize" aria-label="Minimize">—</button>
+              <button class="hm-fullscreen" aria-label="Fullscreen">▢</button>
+              <button class="hm-close" aria-label="Close">✕</button>
+            </div>
+          </div>
+          <div class="hm-window-content" tabindex="0">${html}</div>
+        `;
+
+        layer.appendChild(win);
+
+        // measure -> center -> clamp -> focus
+        requestAnimationFrame(() => {
+          centerAndClamp(win, /* avoidMenu */ true);
+          bringToFront(win);
+          attachWindowBehaviors(win);
+          win.querySelector('.hm-window-content').focus();
+          updateMobileWindowState();
+        });
+
+        return win;
+      }
+
+      /* --- Attach window behaviors (drag/minimize/fullscreen/close/stack) --- */
+      function attachWindowBehaviors(win) {
+        const titlebar = win.querySelector('.hm-window-chrome');
+        const btnMin = win.querySelector('.hm-minimize');
+        const btnFull = win.querySelector('.hm-fullscreen');
+        const btnClose = win.querySelector('.hm-close');
+
+        // Unified pointer-based dragging (works for mouse + touch)
+        let dragActive = false;
+        let offsetX = 0, offsetY = 0;
+
+        titlebar.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.hm-window-controls')) return;
+          dragActive = true;
+          bringToFront(win);
+          const rect = win.getBoundingClientRect();
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
+          win.setPointerCapture?.(e.pointerId);
+        });
+
+        window.addEventListener('pointermove', (e) => {
+          if (!dragActive) return;
+          const vw = window.innerWidth, vh = window.innerHeight;
+          const rect = win.getBoundingClientRect();
+          let x = e.clientX - offsetX;
+          let y = e.clientY - offsetY;
+          const margin = 12;
+          x = Math.max(margin, Math.min(vw - rect.width  - margin, x));
+          y = Math.max(margin, Math.min(vh - rect.height - margin, y));
+          win.style.left = x + 'px';
+          win.style.top  = y + 'px';
+          e.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener('pointerup', (e) => {
+          if (!dragActive) return;
+          dragActive = false;
+          win.releasePointerCapture?.(e.pointerId);
+        });
+
+        btnClose.addEventListener('click', () => {
+          win.remove();
+          updateMobileWindowState();
+        });
+        btnMin.addEventListener('click', () => win.classList.toggle('minimized'));
+        btnFull.addEventListener('click', () => win.classList.toggle('fullscreen'));
+
+        win.addEventListener('mousedown', () => bringToFront(win));
+
+        // keep window on-screen on resize
+        window.addEventListener('resize', () => centerAndClamp(win, false));
+      }
+
+      // CONTENT: Updated copy/links
+      const windowContent = {
+        about: `
+          <h2>About Higher Market</h2>
+          <p>Higher Market is THE online marketplace for the Higher community goods — built by Higher makers, for Higher people. Launched by
+            <a href="https://farcaster.xyz/genuinejack" target="_blank" rel="noopener">Genuine Jack</a>,
+            it began with a simple idea: create a space where any Higher maker could sell their goods.</p>
+          <p><strong>The Market is Always Open.</strong></p>
+
+          <h3>Our Mission</h3>
+          <p>To create a space where independent makers, from the Higher community, can share their work, tell their stories,
+            and sell their goods.</p>
+          <p>Higher Market is built to support the long game — empowering makers with the tools, exposure, and community
+            they need to keep creating on their own terms.</p>
+
+          <h3>What is Higher?</h3>
+          <p><a href="https://www.aimhigher.net" target="_blank" rel="noopener">Higher</a> is a decentralized creative network focused on art, culture, and human potential.</p>
+          <p>It’s a community that believes in collective progress — where creators, supporters, and operators collaborate to build systems that are more open, equitable, and innovative.</p>
+          <p>Higher Market is the commerce layer of that vision — a place where creativity goes from concept to collectible and back again.</p>
+
+          <h3>What We Value</h3>
+          <ul>
+            <li><strong>Community-first collaboration</strong> → Higher, together.</li>
+            <li><strong>Creative excellence & authenticity</strong> → Make what matters.</li>
+            <li><strong>Support for independent makers</strong> → Big or small, every project counts.</li>
+            <li><strong>Innovation in digital culture</strong> → From pixel to product, we build for what’s next.</li>
+            <li><strong>Sustainable creative practice</strong> → Intentional, ethical, built to last.</li>
+          </ul>
+        `,
+
+        friends: `
+          <h2>Higher Market Creative Network</h2>
+          <p>Higher Market doesn't stand alone. We're part of a growing constellation of makers, thinkers, and builders shaping the future of creative culture.</p>
+
+          <h3>Higher Market Makers</h3>
+          <p>We regularly feature items created by Higher Makers, including:</p>
+          <ul>
+            <li><a href="https://farcaster.xyz/clfx.eth" target="_blank" rel="noopener">Colfax</a></li>
+            <li><a href="https://farcaster.xyz/catra" target="_blank" rel="noopener">Catra</a></li>
+            <li><a href="https://farcaster.xyz/dutqa" target="_blank" rel="noopener">DUTQA</a></li>
+            <li><a href="https://farcaster.xyz/atown" target="_blank" rel="noopener">Atown</a></li>
+            <li><a href="https://farcaster.xyz/stustustudio" target="_blank" rel="noopener">stustustudio</a></li>
+          </ul>
+
+          <h3>Higher Projects</h3>
+          <ul>
+            <li><a href="https://farcaster.xyz/~/channel/higher-athletics" target="_blank" rel="noopener">Higher Athletics</a></li>
+            <li><a href="https://higher.fm/" target="_blank" rel="noopener">Higher FM</a></li>
+            <li><a href="https://higher.zip/" target="_blank" rel="noopener">Higher Zip</a></li>
+            <li><a href="https://apps.apple.com/us/app/highercam/id6737978587" target="_blank" rel="noopener">Camera</a></li>
+            <li><a href="https://apps.apple.com/us/app/higher-notes/id6736860942" target="_blank" rel="noopener">Notes</a></li>
+            <li><a href="https://tools.nishu.dev/higher" target="_blank" rel="noopener">Nishu</a></li>
+          </ul>
+
+          <h3>Higher Market Homies</h3>
+          <ul>
+            <li><a href="https://www.basecolors.com" target="_blank" rel="noopener">Base Colors</a></li>
+            <li><a href="https://www.spacetobe.xyz/beings" target="_blank" rel="noopener">Beings Club</a></li>
+            <li><a href="https://chones.xyz/" target="_blank" rel="noopener">Chones</a></li>
+          </ul>
+        `,
+
+        projects: `
+          <h2>Projects</h2>
+          <p>Higher Market regularly develops tools, resources, and experiments to further engage the Higher community. Here are some current concepts in development:</p>
+
+          <h3>Stumble Higher</h3>
+          <p>A digital discovery tool built by Higher Market to help you stumble into fresh ideas, creators, and projects across the Higher ecosystem.</p>
+          <p><a class="hm-btn" href="https://www.stumblehigher.press/" target="_blank" rel="noopener">Open Stumble Higher</a></p>
+
+          <h3>Higher Board</h3>
+          <p>A community bulletin board for sharing ideas, creations, and conversations about Higher. Open to all, curated by Higher Market.</p>
+          <p><a class="hm-btn" href="https://highermarket.freeflarum.com/" target="_blank" rel="noopener">Open Higher Board</a></p>
+
+          <h3>Want to help? Have an idea?</h3>
+          <p>We're always open to exploring new opportunities and empowering folks to build on what we've developed. If you're interested, give us a holler:
+            <a href="mailto:highermarket@genuinejack.xyz">highermarket@genuinejack.xyz</a>
+          </p>
+        `,
+
+        collaborate: `
+          <h2>Let's Work Together</h2>
+          <p><strong>You × Higher</strong></p>
+          <p>Higher Market was made to collaborate. Whether you're a brand, an institution, or part of a creator collective, we’re always open to ideas that push the culture forward.</p>
+
+          <h3>We’re especially down to partner on:</h3>
+          <ul>
+            <li>Brand partnerships & thoughtful sponsorships</li>
+            <li>Cross-community collaborations</li>
+            <li>Events, activations & pop-ups</li>
+            <li>Tech & platform integrations</li>
+          </ul>
+
+          <p><a class="hm-btn" href="https://farcaster.xyz/~/inbox/create/218957?text=gm">Say Hello</a></p>
+
+          <h3>Join Our Creative Ecosystem</h3>
+          <p>Higher Market is fueled by independent Makers. Whether you’ve got something ready to list or want to work on a future drop, there’s a place for you here.</p>
+
+          <p><strong>🛒 List Your Items</strong><br/>
+          Already making a Higher product? Let’s get it on the shelf.
+          <a href="https://farcaster.xyz/~/inbox/create/218957?text=gm">Reach out here</a> and we’ll walk you through the process.</p>
+
+          <p><strong>✍️ Creative Briefs</strong><br/>
+          A few times a year, we release open Creative Briefs for upcoming collections. Anyone can submit work. The community votes. The top entries get produced and featured in the Market.</p>
+
+          <p><a class="hm-btn" href="https://farcaster.xyz/~/channel/higher-market" target="_blank" rel="noopener">Check the channel →</a></p>
+        `
+      };
+
+      /* --- Menu: close on mobile, open window, keep compact --- */
+      menu.addEventListener('click', (e) => {
+        const t = e.target;
+        if (t.matches('.hm-open-window')) {
+          const key = t.getAttribute('data-window');
+          const title = t.textContent.trim();
+          const html = windowContent[key] || '<p>Coming soon.</p>';
+
+          if (isMobile) toggleMenu(false);  // close menu before opening window
+          createWindow(title, html);
+          updateMobileWindowState();
+        }
+      });
+
+      /* ESC to close menu or topmost window */
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (!menu.classList.contains('hidden')) {
+            toggleMenu(false);
+          } else {
+            const wins = [...layer.querySelectorAll('.hm-window')];
+            wins.sort((a,b)=> (parseInt(b.style.zIndex||0)-parseInt(a.style.zIndex||0)));
+            if (wins[0]) {
+              wins[0].remove();
+              updateMobileWindowState();
+            }
+          }
+        }
+      });
+
+      /* --- RADIO: play/pause toggle on icon click/keyboard --- */
+      const radioBtn = document.getElementById('radio-toggle');
+      const radio = document.getElementById('radio-audio');
+
+      async function toggleRadio() {
+        try {
+          if (radio.paused) {
+            await radio.play();
+            radioBtn.classList.add('playing');
+            radioBtn.setAttribute('aria-pressed', 'true');
+            radioBtn.setAttribute('aria-label', 'Pause Higher Radio');
+          } else {
+            radio.pause();
+            radioBtn.classList.remove('playing');
+            radioBtn.setAttribute('aria-pressed', 'false');
+            radioBtn.setAttribute('aria-label', 'Play Higher Radio');
+          }
+        } catch (err) {
+          console.error('Radio play error:', err);
+        }
+      }
+
+      radioBtn.addEventListener('click', toggleRadio);
+      radioBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleRadio();
+        }
+      });
+
+      radio.addEventListener('ended', () => {
+        radioBtn.classList.remove('playing');
+        radioBtn.setAttribute('aria-pressed', 'false');
+        radioBtn.setAttribute('aria-label', 'Play Higher Radio');
+      });
+    })();
   </script>
 
-<!--
-    Farcaster Mini App SDK: Signal readiness once password screen is loaded.
-    This hides the splash screen and shows the password gate.
+  <!--
+    Import the Farcaster Mini App SDK and signal readiness.
+    The sdk.actions.ready() call hides the default splash screen shown when
+    users open your Mini App. Without calling ready(), the splash screen
+    will remain and users will see an infinite loading state. See the
+    Farcaster documentation for more details.
   -->
-  <script type="module">
+    <script type="module">
     import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-    // Call ready() once the password screen has loaded
-    window.addEventListener('load', async () => {
+
+    const callReady = async () => {
       try {
         await sdk.actions.ready();
+        console.log('Farcaster Mini App ready() called');
       } catch (err) {
         console.error('Farcaster ready() failed:', err);
       }
-    });
-  </script>
+    };
 
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      callReady();
+    } else {
+      window.addEventListener('DOMContentLoaded', callReady);
+    }
+  </script>
 </body>
 </html>
